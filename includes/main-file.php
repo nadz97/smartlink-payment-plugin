@@ -413,7 +413,6 @@ class smartlink_payment_gateway extends WC_Payment_Gateway
                 'phone' => $order->get_billing_phone(),
             ],
             'item' => [],
-            'channel' => ['VA_BRI'],
             'type' => 'payment-page',
             'callback_url' => get_site_url() . '/wc-api/smartlink/',
             'success_redirect_url' => add_query_arg('order_id', $order_id, $this->get_return_url($order)),
@@ -423,6 +422,7 @@ class smartlink_payment_gateway extends WC_Payment_Gateway
         $cc_mode = $this->get_option('cc_mode');
         if ($cc_mode === 'CC_RECURRING') {
             $api_data['payment_mode'] = 'RECURRING';
+            $api_data['channel'] = ['CC_VISA'];
             $api_data['recurrence_details'] = [
                 'interval' => (int) $this->get_option('interval'),
                 'interval_unit' => $this->get_option('interval_unit'),
@@ -431,6 +431,7 @@ class smartlink_payment_gateway extends WC_Payment_Gateway
             ];
         } elseif ($cc_mode === 'CC') {
             $api_data['payment_mode'] = 'CLOSE';
+            $api_data['channel'] = ['CC_VISA'];
         } else {
             $api_data['channel'] = ['ALL'];
         }
