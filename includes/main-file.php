@@ -284,12 +284,13 @@ class smartlink_payment_gateway extends WC_Payment_Gateway
             'cc_mode' => [
                 'title' => __('Payment Mode', SMARTLINK_PAYMENT_TEXT_DOMAIN),
                 'type' => 'select',
-                'label' => __('Select CC or CC Recurring', SMARTLINK_PAYMENT_TEXT_DOMAIN),
+                'label' => __('Select Payment Mode', SMARTLINK_PAYMENT_TEXT_DOMAIN),
                 'options' => [
+                    'NORMAL' => __('Normal (Non CC)', SMARTLINK_PAYMENT_TEXT_DOMAIN),
                     'CC' => __('CC', SMARTLINK_PAYMENT_TEXT_DOMAIN),
                     'CC_RECURRING' => __('CC Recurring', SMARTLINK_PAYMENT_TEXT_DOMAIN)
                 ],
-                'default' => 'CC'
+                'default' => 'NORMAL'
             ],
             'interval' => [
                 'title' => __('Periode Tagihan (Interval)', SMARTLINK_PAYMENT_TEXT_DOMAIN),
@@ -428,8 +429,10 @@ class smartlink_payment_gateway extends WC_Payment_Gateway
                 'start_time' => $this->get_option('start_time'),
                 'total_recurrence' => (int) $this->get_option('total_recurring')
             ];
-        } else {
+        } elseif ($cc_mode === 'CC') {
             $api_data['payment_mode'] = 'CLOSE';
+        } else {
+            $api_data['channel'] = ['ALL'];
         }
 
         $expired_time = $this->get_option('expired_time');
