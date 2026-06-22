@@ -64,7 +64,7 @@ class smartlink_payment_gateway extends WC_Payment_Gateway
         // callback 
         add_action('woocommerce_api_smartlink', array($this, 'payment_callback'));
 
-        add_action('woocommerce_checkout_order_processed', 'smartlink_delayed_payment_processing', 20, 3);
+        add_action('woocommerce_checkout_order_processed', [$this, 'smartlink_delayed_payment_processing'], 20, 3);
     }
 
     function smartlink_delayed_payment_processing($order_id, $posted_data, $order)
