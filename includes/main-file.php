@@ -309,23 +309,18 @@ class smartlink_payment_gateway extends WC_Payment_Gateway
                 ],
                 'default' => 'DAY',
             ],
-            'start_time' => [
-                'title' => __('Tanggal Mulai', SMARTLINK_PAYMENT_TEXT_DOMAIN),
-                'type' => 'text',
-                'description' => __('Format: YYYY-MM-DDTHH:mm:ss+07:00', SMARTLINK_PAYMENT_TEXT_DOMAIN),
-                'default' => '',
+            'recurring_expiry_hours' => [
+                'title' => __('Recurring Expiry (Hours)', SMARTLINK_PAYMENT_TEXT_DOMAIN),
+                'type' => 'number',
+                'description' => __('How many hours after the order time the recurring payment should expire', SMARTLINK_PAYMENT_TEXT_DOMAIN),
+                'default' => '1',
+                'desc_tip' => true,
             ],
             'total_recurring' => [
                 'title' => __('Jumlah Tagihan', SMARTLINK_PAYMENT_TEXT_DOMAIN),
                 'type' => 'number',
                 'description' => __('Total recurrence for recurring payment', SMARTLINK_PAYMENT_TEXT_DOMAIN),
                 'default' => '3',
-            ],
-            'expired_time' => [
-                'title' => __('Expired Time', SMARTLINK_PAYMENT_TEXT_DOMAIN),
-                'type' => 'text',
-                'description' => __('Format: YYYY-MM-DDTHH:mm:ss+07:00', SMARTLINK_PAYMENT_TEXT_DOMAIN),
-                'default' => '',
             ],
         ]);
 
@@ -423,22 +418,29 @@ class smartlink_payment_gateway extends WC_Payment_Gateway
         if ($cc_mode === 'CC_RECURRING') {
             $api_data['payment_mode'] = 'RECURRING';
             $api_data['channel'] = ['CC_VISA'];
+
+            $timezone = wp_timezone();
+            $now = new DateTimeImmutable('now', $timezone);
+            
+            $expiry_hours = max(1, (int) $this->get_option('recurring_expiry_hours'));
+            $expiry_time = $now->modify('+' . $expiry_hours . ' hours')->format('Y-m-d\TH:i:sP');
+
+            $interval = (int) $this->get_option('interval');
+            $interval_unit = strtolower($this->get_option('interval_unit')); // e.g., 'day', 'month'
+            $start_time = $now->modify("+$interval $interval_unit")->format('Y-m-d\TH:i:sP');
+
             $api_data['recurrence_details'] = [
                 'interval' => (int) $this->get_option('interval'),
                 'interval_unit' => $this->get_option('interval_unit'),
-                'start_time' => $this->get_option('start_time'),
+                'start_time' => $start_time,
                 'total_recurrence' => (int) $this->get_option('total_recurring')
             ];
+            $api_data['expired_time'] = $expiry_time;
         } elseif ($cc_mode === 'CC') {
             $api_data['payment_mode'] = 'CLOSE';
             $api_data['channel'] = ['CC_VISA'];
         } else {
             $api_data['channel'] = ['ALL'];
-        }
-
-        $expired_time = $this->get_option('expired_time');
-        if (!empty($expired_time)) {
-            $api_data['expired_time'] = $expired_time;
         }
 
         // Loop through order items and calculate DP
@@ -483,7 +485,7 @@ class smartlink_payment_gateway extends WC_Payment_Gateway
         $api_data['amount'] = $total_down_payment;
 
         // Prepare API request
-        $payment_url = $this->settings['test_mode'] === 'yes'
+        $payment_url = $this->get_option('test_mode') === 'yes'
             ? 'https://payment-service-sbx.pakar-digital.com'
             : 'https://payment-service.pakar-digital.com';
 
@@ -495,6 +497,7 @@ class smartlink_payment_gateway extends WC_Payment_Gateway
 
         $response = wp_remote_post($api_url, [
             'method'    => 'POST',
+            'timeout'   => 45,
             'body'      => json_encode($api_data),
             'headers'   => [
                 'Content-Type' => 'application/json',
@@ -519,8 +522,12 @@ class smartlink_payment_gateway extends WC_Payment_Gateway
                 'redirect' => $response_data['data']['payment_url'],
             ];
         } else {
-            wc_add_notice(__('Payment failed:', 'woothemes') . $response_data['message'], 'error');
-            $this->logger->log('error', 'Payment failed for order ' . $order->get_id() . ': ' . $response_data['message']);
+            $error_msg = isset($response_data['message']) ? $response_data['message'] : 'Unknown error';
+            wc_add_notice(__('Payment failed: ', 'woothemes') . $error_msg, 'error');
+            $this->logger->log('error', 'Payment failed for order ' . $order->get_id() . ': ' . $error_msg);
+            $this->logger->log('error', 'API Endpoint Hit: ' . $api_url);
+            $this->logger->log('error', 'Request Payload: ' . json_encode($api_data));
+            $this->logger->log('error', 'API Response: ' . json_encode($response_data));
             return;
         }
     }
