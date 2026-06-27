@@ -302,6 +302,7 @@ class smartlink_payment_gateway extends WC_Payment_Gateway
                 'title' => __('Periode Tagihan (Unit)', SMARTLINK_PAYMENT_TEXT_DOMAIN),
                 'type' => 'select',
                 'options' => [
+                    'MINUTE' => 'MINUTE',
                     'DAY' => 'DAY',
                     'WEEK' => 'WEEK',
                     'MONTH' => 'MONTH',
